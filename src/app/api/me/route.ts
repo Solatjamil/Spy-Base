@@ -12,11 +12,11 @@ function sha256(s: string) {
   return createHash("sha256").update(s).digest("hex");
 }
 
-function isAuthed(): boolean {
+async function isAuthed(): Promise<boolean> {
   const pass = cfg("ADMIN_PASSWORD");
   const passHash = cfg("ADMIN_PASSWORD_SHA256");
-  if (!pass && !passHash) return true; // no lock set = open (you said you're the only user)
-  const c = cookies().get(COOKIE)?.value || "";
+  if (!pass && !passHash) return true; // no lock set = open (owner-only tool)
+  const c = (await cookies()).get(COOKIE)?.value || "";
   if (!c) return false;
   try {
     const [exp, sig] = c.split(".");
@@ -24,7 +24,10 @@ function isAuthed(): boolean {
     if (parseInt(exp, 10) < Date.now()) return false;
     const secret = cfg("SESSION_SECRET") || "spybase-dev-secret-change-me";
     const expected = createHash("sha256").update(exp + ":" + secret).digest("hex");
-    return timingSafeEqual(Buffer.from(expected), Buffer.from(sig));
+    const a = Buffer.from(expected);
+    const b = Buffer.from(sig);
+    if (a.length !== b.length) return false;
+    return timingSafeEqual(a, b);
   } catch {
     return false;
   }
@@ -33,7 +36,7 @@ function isAuthed(): boolean {
 export async function GET(req: Request) {
   const url = new URL(req.url);
   if (url.searchParams.get("auth") === "check") {
-    return NextResponse.json({ authed: isAuthed() });
+    return NextResponse.json({ authed: await isAuthed() });
   }
   // Status of each key (masked value — never returns raw secret)
   const configured = ENV_DOCS.map((e) => {
@@ -55,7 +58,7 @@ export async function GET(req: Request) {
     };
   });
   return NextResponse.json({
-    authed: isAuthed(),
+    authed: await isAuthed(),
     configured,
     appName: cfg("NEXT_PUBLIC_APP_NAME") || "SpyBase",
     demo: cfg("DEMO_MODE") === "1",
@@ -70,7 +73,6 @@ export async function POST(req: Request) {
     const pass = cfg("ADMIN_PASSWORD");
     const passHash = cfg("ADMIN_PASSWORD_SHA256");
     if (!pass && !passHash) {
-      // no lock set
       return NextResponse.json({ ok: true });
     }
     let ok = false;
@@ -80,7 +82,8 @@ export async function POST(req: Request) {
       const secret = cfg("SESSION_SECRET") || "spybase-dev-secret-change-me";
       const exp = Date.now() + 1000 * 60 * 60 * 24 * 7; // 7 days
       const sig = createHash("sha256").update(exp + ":" + secret).digest("hex");
-      cookies().set(COOKIE, `${exp}.${sig}`, {
+      const c = await cookies();
+      c.set(COOKIE, `${exp}.${sig}`, {
         httpOnly: true,
         sameSite: "lax",
         secure: process.env.NODE_ENV === "production",
@@ -92,7 +95,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Incorrect password" }, { status: 401 });
   }
   if (action === "logout") {
-    cookies().delete(COOKIE);
+    (await cookies()).delete(COOKIE);
     return NextResponse.json({ ok: true });
   }
   return NextResponse.json({ error: "unknown action" }, { status: 400 });

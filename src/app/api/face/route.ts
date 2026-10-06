@@ -5,6 +5,14 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+/** Convert a Node Buffer to a BlobPart-friendly ArrayBuffer copy. */
+function toBlobPart(buf: Buffer): Uint8Array {
+  const ab = new ArrayBuffer(buf.length);
+  const view = new Uint8Array(ab);
+  for (let i = 0; i < buf.length; i++) view[i] = buf[i];
+  return view;
+}
+
 /**
  * POST /api/face
  * Body: form-data with field "image" (file) OR JSON { imageUrl: "..." }
@@ -62,45 +70,24 @@ export async function POST(req: Request) {
   /* ---------- SerpAPI Google Lens reverse-image ---------- */
   if (cfg("SERPAPI_KEY")) {
     try {
-      let u: string;
-      if (imageUrl) {
-        u = `https://serpapi.com/search?engine=google_lens&url=${encodeURIComponent(
-          imageUrl
-        )}&api_key=${encodeURIComponent(cfg("SERPAPI_KEY")!)}`;
-      } else if (imageBuffer) {
-        // Upload to SerpAPI via form (they accept multipart)
+      let r: Response;
+      if (imageBuffer) {
+        // Upload to SerpAPI via multipart form (they accept image uploads)
         const fd = new FormData();
         fd.append("api_key", cfg("SERPAPI_KEY")!);
         fd.append("engine", "google_lens");
-        fd.append("image", new Blob([imageBuffer], { type: contentType }), "upload.jpg");
-        const r = await fetch("https://serpapi.com/search", { method: "POST", body: fd });
-        if (r.ok) {
-          const j = await r.json();
-          const visual = j.visual_matches || [];
-          sources_hit.push("SerpAPI Google Lens");
-          addHit(
-            "SerpAPI Google Lens",
-            visual.map((v: any) => ({
-              title: v.title,
-              url: v.link,
-              image: v.thumbnail,
-              snippet: v.source,
-              score: 0.88,
-              exact: false,
-            }))
-          );
-          continue;
-        } else {
-          errors.push("SerpAPI: " + (await r.text()).slice(0, 300));
-          sources_missing.push("SerpAPI Google Lens");
-        }
-        continue;
+        fd.append("image", new Blob([toBlobPart(imageBuffer) as any], { type: contentType }), "upload.jpg");
+        r = await fetch("https://serpapi.com/search", { method: "POST", body: fd });
+      } else if (imageUrl) {
+        const u = `https://serpapi.com/search?engine=google_lens&url=${encodeURIComponent(
+          imageUrl
+        )}&api_key=${encodeURIComponent(cfg("SERPAPI_KEY")!)}`;
+        r = await fetch(u);
       } else {
         sources_missing.push("SerpAPI Google Lens");
-        continue;
+        r = null as any;
       }
-      const r = await fetch(u);
-      if (r.ok) {
+      if (r && r.ok) {
         const j = await r.json();
         const visual = j.visual_matches || [];
         sources_hit.push("SerpAPI Google Lens");
@@ -112,9 +99,10 @@ export async function POST(req: Request) {
             image: v.thumbnail,
             snippet: v.source,
             score: 0.88,
+            exact: false,
           }))
         );
-      } else {
+      } else if (r) {
         errors.push("SerpAPI: " + (await r.text()).slice(0, 300));
         sources_missing.push("SerpAPI Google Lens");
       }
@@ -197,7 +185,7 @@ export async function POST(req: Request) {
           "Ocp-Apim-Subscription-Key": cfg("BING_SEARCH_API_KEY")!,
           "Content-Type": contentType,
         },
-        body: imageBuffer,
+        body: toBlobPart(imageBuffer) as any,
       });
       if (r.ok) {
         const j = await r.json();
@@ -229,7 +217,7 @@ export async function POST(req: Request) {
     try {
       const fd = new FormData();
       fd.append("api_key", cfg("TINEYE_API_KEY")!);
-      fd.append("image", new Blob([imageBuffer], { type: contentType }), "upload.jpg");
+      fd.append("image", new Blob([toBlobPart(imageBuffer) as any], { type: contentType }), "upload.jpg");
       const r = await fetch("https://api.tineye.com/rest/search/", { method: "POST", body: fd });
       if (r.ok) {
         const j = await r.json();
@@ -262,7 +250,7 @@ export async function POST(req: Request) {
   if (cfg("SEARCH4FACES_API_KEY") && imageBuffer) {
     try {
       const fd = new FormData();
-      fd.append("avatar", new Blob([imageBuffer], { type: contentType }), "upload.jpg");
+      fd.append("avatar", new Blob([toBlobPart(imageBuffer) as any], { type: contentType }), "upload.jpg");
       const r = await fetch("https://search4faces.com/api/search/v1", {
         method: "POST",
         headers: { "x-api-key": cfg("SEARCH4FACES_API_KEY")! },
