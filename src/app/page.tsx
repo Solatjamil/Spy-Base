@@ -1,6 +1,7 @@
 "use client";
 import {
   Search,
+  Camera,
   ShieldAlert,
   Bug,
   Network,
@@ -174,6 +175,11 @@ export default function Home() {
                 Lookup <ArrowRight className="w-4 h-4" />
               </button>
             </form>
+            <div className="mt-3">
+              <Link href="/lookup/face" className="btn btn-ghost">
+                <Camera className="w-4 h-4" /> Or search by face / photo (stronger than Google Lens)
+              </Link>
+            </div>
 
             <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-[var(--muted)]">
               <li className="flex items-center gap-1.5">

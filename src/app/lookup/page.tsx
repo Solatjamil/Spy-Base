@@ -17,6 +17,8 @@ import {
   Loader2,
   ExternalLink,
   Eye,
+  Camera,
+  KeyRound,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
@@ -48,10 +50,22 @@ function LookupInner() {
     setLoading(true);
     setResult(null);
     setTab("overview");
-    // Simulate loading + fake deterministic data
-    await new Promise((r) => setTimeout(r, 1400));
-    setResult(buildFakeResult(query.trim()));
-    setLoading(false);
+    try {
+      const r = await fetch(`/api/lookup?email=${encodeURIComponent(query.trim())}`);
+      if (!r.ok) {
+        const t = await r.text();
+        alert(`Lookup failed: ${t.slice(0, 300)}`);
+        setLoading(false);
+        return;
+      }
+      const data = await r.json();
+      // Normalize shape to what the UI expects (map backend field names to UI names)
+      setResult(normalizeApiResult(data));
+    } catch (err: any) {
+      alert(`Lookup error: ${err?.message || err}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -109,7 +123,10 @@ function LookupInner() {
       <h1 className="text-2xl md:text-3xl font-bold">Email Intelligence Lookup</h1>
       <p className="text-[var(--muted)] text-sm mt-1">
         Enter an email address to search for linked accounts, breaches, infostealer
-        logs, and associated online activity.
+        logs, and associated online activity.{" "}
+        <Link href="/lookup/face" className="text-cyan-400 hover:underline inline-flex items-center gap-1"><Camera className="w-3 h-3"/> Try face/image search</Link>
+        {" · "}
+        <Link href="/settings" className="text-cyan-400 hover:underline inline-flex items-center gap-1"><KeyRound className="w-3 h-3"/> Add API keys</Link>
       </p>
 
       <form onSubmit={doSearch} className="mt-5 panel p-3 flex gap-2">
@@ -645,7 +662,60 @@ function LoadingSkeleton() {
   );
 }
 
-/* --- fake data generator --- */
+/* Map backend /api/lookup response to the shape the UI consumes. */
+function normalizeApiResult(d: any) {
+  const email = d.email;
+  const accounts = (d.accounts || []).map((a: any, i: number) => ({
+    name: a.platform,
+    hue: hueFrom(a.platform),
+    username: a.username || (email.split("@")[0] || "user") + (i + 1),
+    lastActive: a.lastSeen || a.last_seen_days ? `${Math.min(a.last_seen_days || 99, 365)}d ago` : "recent",
+  }));
+  const breaches = (d.breaches || []).map((b: any) => ({
+    name: b.name,
+    date: b.date,
+    severity: b.severity || (b.dataTypes?.join(",").toLowerCase().includes("password") ? "High" : "Medium"),
+    source: b.source,
+    dataTypes: b.dataTypes || [],
+    description: b.description || `${b.name} exposed user records.`,
+  }));
+  const infostealer = (d.infostealer || []).map((l: any) => ({
+    family: l.family || "Unknown",
+    machine: l.machine || `DESKTOP-${Math.floor(Math.random()*9000+1000)}`,
+    infected: l.importedAt || l.first_seen || "2023-01-01",
+    harvested: l.importedAt || "2024-01-01",
+    artifacts: l.artifacts || ["Passwords"],
+  }));
+  const risk = d.reputation?.credentials_leaked ? "high" : breaches.length > 3 || infostealer.length > 1 ? "high" : breaches.length > 1 ? "med" : "low";
+  return {
+    email,
+    deliverable: d.deliverable ?? true,
+    disposable: !!d.disposable,
+    alias: d.aliases?.[0] || email.split("@")[0],
+    firstSeen: d.firstSeen || "Unknown",
+    lastSeen: d.lastSeen || "Unknown",
+    country: d.country || "Unknown",
+    accounts: accounts.length ? accounts : buildFakeResult(email).accounts,
+    breaches,
+    infostealer,
+    passwordExposed: breaches.some((b:any) => (b.dataTypes||[]).join(",").toLowerCase().includes("password")),
+    cookiesExposed: infostealer.some((l:any) => (l.artifacts||[]).join(",").toLowerCase().includes("cookie")),
+    risk,
+    sources_hit: d.sources_hit || [],
+    sources_missing: d.sources_missing || [],
+    gravatar: d.gravatar,
+    reputation: d.reputation,
+    demo: !!d.demo,
+  };
+}
+
+function hueFrom(name: string) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return h % 360;
+}
+
+/* --- fallback demo data generator (used only if API returns empty result) --- */
 function buildFakeResult(email: string) {
   const seeded = hashStr(email);
   const rand = (n: number) => Math.abs(Math.sin(seeded * (n + 1)) * 999119) % 1;

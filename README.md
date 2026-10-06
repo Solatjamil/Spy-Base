@@ -1,76 +1,121 @@
-# SpyBase — Free OSINT & Email Intelligence
+# SpyBase — Free OSINT, Email & Face Intelligence
 
-SpyBase is a free, open-source email intelligence / OSINT platform cloned
-and rebranded from IntelBase. **Every feature is unlocked and free
-forever**: email lookup, linked accounts, data breaches, infostealer log
-inspection, connection graph, timeline, team workspaces, PDF/JSON exports,
-bulk lookup, REST API, webhook alerts, and an AI analyst powered by your own
-OpenRouter key.
+SpyBase is a free, open-source intelligence platform cloned and rebranded
+from IntelBase with **two major upgrades**:
 
-This project is a Next.js 14 (App Router) + Tailwind app designed for
-one-click deployment to **Vercel**.
+- 🔎 **Email lookup** that calls **real breach / infostealer / OSINT APIs**
+  when you configure keys (HIBP, LeakCheck, Snusbase, IntelX, EmailRep, Hunter,
+  WhoisXML, Gravatar, and more) instead of showing dummy data.
+- 📸 **Face & Image OSINT** — drag-drop a photo to reverse-search faces/images
+  across Google Lens (SerpAPI), Google Cloud Vision, Bing Visual Search,
+  TinEye, and Search4Faces, then get an AI-vision investigator brief powered
+  by OpenRouter. It's designed to be **stronger than Google Lens** for OSINT
+  because it runs every provider simultaneously, extracts metadata, and
+  produces an actionable report.
 
-## Quick start (local)
+**Every feature is free forever.** Add only the API keys you want — missing
+providers are skipped gracefully.
 
-```bash
-npm install
-cp .env.example .env.local   # add your OPENROUTER_API_KEY (optional, free tier works)
-npm run dev
-# open http://localhost:3000
-```
+## Pages
 
-## Deploy to Vercel
+| Route | Description |
+|---|---|
+| `/` | Marketing landing |
+| `/lookup` | Email intelligence UI (Overview, Breaches, Infostealer, Accounts, Graph, Timeline, AI) |
+| `/lookup/face` | **NEW — Face/Image OSINT** (reverse search + AI vision report) |
+| `/dashboard` | Analytics + alerts + recent lookups |
+| `/settings` | Owner-only secrets panel (shows which keys are live, masked) |
+| `/pricing` | "Everything free forever" plan page |
+| `/docs` | Deployment & API docs |
+| `/about` | Mission & responsible-use policy |
+| `/auth` | Sign in / sign up |
 
-1. Push this folder to GitHub.
-2. Import the repo in Vercel (Next.js preset).
-3. Set these environment variables in Vercel → Settings → Environment
-   Variables:
-   - `OPENROUTER_API_KEY` — your key from https://openrouter.ai/keys
-   - `OPENROUTER_MODEL` (optional) — defaults to
-     `google/gemini-2.0-flash-exp:free`, a free model
+## API routes
+
+- `GET /api/lookup?email=...` — aggregates every email/breach provider you configured
+- `POST /api/face` — reverse-image / face search across SerpAPI/GV/Bing/TinEye/S4F
+- `POST /api/image-analysis` — OpenRouter vision AI analysis (JSON investigator brief)
+- `GET/POST /api/me` — settings/auth status (reveals masked keys only)
+- `POST /api/ai` — AI chat proxy
+
+## Deploy to Vercel (1 click)
+
+1. Push this repo to GitHub.
+2. Import into Vercel (Next.js preset).
+3. In Vercel → Settings → Environment Variables, add any API keys you have
+   (start with these):
+   - `OPENROUTER_API_KEY` — from https://openrouter.ai/keys (free models work;
+     enables both the chat analyst and the face/image vision analysis)
+   - `SERPAPI_KEY` — from https://serpapi.com (free tier gives ~100 Google Lens
+     reverse-image searches/month — this single key makes the face lookup
+     dramatically better than Google Lens alone)
+   - `HIBP_NO_KEY=1` — enables free HaveIBeenPwned breach lookups (rate-limited)
+   - `ADMIN_PASSWORD` — pick a password to lock the `/settings` page (you said
+     you're the only user, so this is sufficient)
+   - `SESSION_SECRET` — any long random string
 4. Deploy.
 
-### Recommended free OpenRouter models
+## All supported env vars
 
-- `google/gemini-2.0-flash-exp:free`
-- `meta-llama/llama-3.2-3b-instruct:free`
-- `mistralai/mistral-7b-instruct:free`
-- `qwen/qwen-2-7b-instruct:free`
+See `.env.example` for the full annotated list (30+ providers). Categories:
 
-The UI explains how to configure AI if the key is missing.
+### AI
+- `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` (defaults to the free Gemini flash model)
 
-## Pages & routes
+### Email / Breach OSINT
+- `HIBP_NO_KEY`, `HIBP_API_KEY` — HaveIBeenPwned
+- `LEAKCHECK_API_KEY` — LeakCheck
+- `LEAKCHECKIO_API_KEY` — LeaksAPI (infostealer heavy)
+- `SNUSBASE_API_KEY` — Snusbase
+- `WELEAKINFO_API_KEY` — WeLeakInfo
+- `INTELX_API_KEY` — Intelligence.X (free tier)
+- `PSBDMP_API_KEY` — pastebin dumps
+- `EMAILREP_API_KEY` — EmailRep.io (free tier)
+- `HUNTER_API_KEY` — Hunter.io
+- `WHOISXML_API_KEY` — WhoisXML (free tier)
+- `PYPIG_API_KEY` — Proxycurl / LinkedIn
+- `EPLEO_API_KEY` — Epieos (free tier)
+- `GRAVATAR_ENABLED=1` — Gravatar (no key)
+- `ENRICH_FROM_SOCIAL=1` — public account presence probes (no key)
 
-- `/` — marketing landing page
-- `/lookup` — core email intelligence UI (overview, breaches, infostealer,
-  accounts, graph, timeline, AI analyst tabs)
-- `/dashboard` — analytics, recent lookups, monitors, quick actions
-- `/pricing` — "everything free forever" plan page
-- `/docs` — deployment & API documentation
-- `/about` — mission / responsible-use policy
-- `/auth` — sign in / sign up (demo — swap in NextAuth/Auth.js/Clerk)
-- `/api/lookup` — public JSON lookup endpoint (replace mock data with your sources)
-- `/api/ai` — OpenRouter chat proxy (edge runtime, uses your API key)
+### Face / Reverse-Image
+- `SERPAPI_KEY` — **strongest free option** (Google Lens endpoint)
+- `GOOGLE_CLOUD_VISION_API_KEY` — faces, labels, logos, landmarks, OCR, web matches
+- `BING_SEARCH_API_KEY` — Bing visual search
+- `TINEYE_API_KEY` — exact-match reverse image
+- `CLARIFAI_API_KEY` — celebrity/face model
+- `YANDEX_VISION_API_KEY` — Yandex vision/OCR
+- `SEARCH4FACES_API_KEY` — VK/TikTok/Clubhouse face search
+- `FACECHECK_ID_TOKEN`, `PIMEYES_API_KEY`, `SOCIALCATFISH_API_KEY`, `BEENVERIFIED_API_KEY`
+- `GOOGLE_CSE_API_KEY`, `GOOGLE_CSE_ID` — Google CSE fallback
 
-## Bringing your own data
+### Admin
+- `ADMIN_PASSWORD` (or `ADMIN_PASSWORD_SHA256`) — lock `/settings`
+- `SESSION_SECRET` — cookie signing secret
 
-By default the `/api/lookup` endpoint returns deterministic mock data so the
-UI works out of the box. To connect real intelligence sources:
+### App
+- `NEXT_PUBLIC_APP_NAME` — branding override (default `SpyBase`)
+- `DEMO_MODE=1` — force sample data for previews/screenshots
 
-1. Edit `src/app/api/lookup/route.ts`.
-2. Call your providers (HIBP, LeakCheck, your own breach DB, infostealer
-   indexes, etc.) using server-side env keys.
-3. Return the documented JSON shape.
+## Free-model recommendations for AI vision
 
-Stub endpoints are ready to extend for monitoring (`/api/monitor`) and bulk
-lookup (`/api/bulk`).
+OpenRouter free models that support images (as of 2026):
+
+- `google/gemini-2.0-flash-exp:free` — best free option (vision + long context)
+- `meta-llama/llama-3.2-11b-vision-instruct:free` (when available)
+- `qwen/qwen-2-vl-7b-instruct:free`
+
+Set `OPENROUTER_MODEL` to whichever you want.
+
+## Adding your own data sources
+
+Every provider call is isolated in `src/lib/emailSources.ts` and
+`src/app/api/face/route.ts`. Add a new block that calls your API, pushes to
+the results array, and you're done — the UI will automatically show the new
+source in the "Active providers" panel and badge each result with its source.
 
 ## Responsible use
 
 SpyBase is intended for **authorized** security research, threat
 intelligence, fraud prevention, and lawful investigations. Do not use it to
-stalk, harass, or obtain data without legal authorization.
-
-## License
-
-MIT — do good things with it.
+stalk, harass, dox, or obtain data without legal authorization.

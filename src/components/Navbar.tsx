@@ -7,9 +7,11 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);
   const nav = [
     { href: "/", label: "Home" },
-    { href: "/lookup", label: "Lookup" },
+    { href: "/lookup", label: "Email Lookup" },
+    { href: "/lookup/face", label: "Face / Image" },
     { href: "/dashboard", label: "Dashboard" },
     { href: "/docs", label: "API Docs" },
+    { href: "/settings", label: "Secrets" },
     { href: "/pricing", label: "Pricing" },
     { href: "/about", label: "About" },
   ];
